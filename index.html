@@ -94,7 +94,7 @@ function sync(){document.querySelectorAll('.storeName').forEach(x=>stopData[+x.d
 function drawStops(){stops.innerHTML='';stopData.forEach((s,n)=>{let d=document.createElement('div');d.className='stop';d.innerHTML=`<b>Parada ${n+1}</b><label>Categoría</label><select><option>Mercado / Carnicería</option><option>Panadería</option><option>Antojitos / Taquería</option><option>Food trailer</option><option>Otro</option></select><label>Buscar tienda</label><div class="row"><input class="storeSearch" data-i="${n}" value="${s.store}" placeholder="Ej. La Michoacana o panadería"><button type="button" onclick="searchNearby(${n})">Buscar cerca</button></div><div id="nearby-${n}" class="nearbyResults"></div><input type="hidden" class="storeName" data-i="${n}" value="${s.store}"><input type="hidden" class="storeAddress" data-i="${n}" value="${s.address||''}"><div id="selected-${n}" class="status ${s.store?'ok':''}">${s.store?`✅ ${s.store}<br>📍 ${s.address}`:'Selecciona una sucursal de los resultados.'}</div><label>Artículos</label><textarea class="items" data-i="${n}" placeholder="Ej. 2 lb fajita, tortillas, aguacates">${s.items}</textarea>`;stops.appendChild(d)});fee=fees[stopData.length]||58;stopCount.textContent=stopData.length;service.textContent=clientFee.textContent=adminFee.textContent='$'+fee.toFixed(2)}
 addStop.onclick=()=>{sync();if(stopData.length>=5)return alert('Máximo 5 tiendas en esta demo.');stopData.push({store:'',address:'',items:''});drawStops();render()}
 saveCard.onclick=()=>{let d=cardNum.value.replace(/\D/g,'');if(d.length<4)return alert('Usa 4242 4242 4242 4242 para esta prueba.');last=d.slice(-4);last4.textContent=last;cardSaved=true;cardForm.classList.add('hidden');savedCard.classList.remove('hidden');clientState.className='status ok';clientState.textContent='✅ Método de pago de prueba listo.'}
-placeOrder.onclick=()=>{sync();if(!streetNumber.value.trim()||!streetName.value.trim()||!city.value.trim()||!state.value.trim()||!zipCode.value.trim())return alert('Completa toda la dirección.');if(stopData.some(s=>!s.store.trim()||!s.address.trim()||!s.items.trim()))return alert('Completa todas las tiendas y artículos.');if(!cardSaved)return alert('Guarda primero la tarjeta de prueba.');placed=true;paid=Array(stopData.length).fill(null);status='Nuevo — esperando asignación';clientState.className='status ok';clientState.textContent='✅ Pedido recibido por Mercadito.';render();show('admin')}
+placeOrder.onclick=()=>{sync();if(!streetNumber.value.trim()||!streetName.value.trim()||!city.value.trim()||!state.value.trim()||!zipCode.value.trim())return alert('Completa toda la dirección.');if(stopData.some(s=>!s.store.trim()||!s.address.trim()||!s.items.trim()))return alert('Completa todas las tiendas y artículos.');if(!cardSaved)return alert('Guarda primero la tarjeta de prueba.');placed=true;paid=Array(stopData.length).fill(null);status='Nuevo — esperando asignación';clientState.className='status ok';clientState.textContent='✅ Pedido recibido por Mercadito.';render();show('admin');guardarPedidoSupabase()}
 function assignDriver(name){assigned=name;accepted=false;status=`Ofrecido a ${name}`;driverSelect.value=name;offerCard.classList.remove('hidden');render();show('driver')}
 acceptOrder.onclick=()=>{if(driverSelect.value!==assigned)return alert(`Este pedido fue ofrecido a ${assigned}.`);accepted=true;status=`Aceptado por ${assigned}`;offerCard.classList.add('hidden');workCard.classList.remove('hidden');tracking.className='status ok';render()}
 declineOrder.onclick=()=>{status=`${assigned} rechazó — reasignar`;assigned=null;offerCard.classList.add('hidden');render();show('admin')}
@@ -233,7 +233,45 @@ openGoogleRoute.onclick=()=>{
 }
 
 
-drawStops();render();
+drawStops();render();const SUPABASE_URL='https://ywxposyjlwsbjxlveuqi.supabase.co';
+const SUPABASE_KEY='sb_publishable_uwCWPrg7FVqoRTdmOT7jQg_YOOsxd4y';
+
+async function guardarPedidoSupabase(){
+  sync();
+
+  const datos={
+    direccion:addr(),
+    ciudad:city.value.trim(),
+    estado:state.value.trim(),
+    zip:zipCode.value.trim(),
+    tienda:stopData.map(s=>s.store).join(' | '),
+    articulos:stopData.map(s=>s.items).join(' | '),
+    total:fee,
+    estado_pedido:'Nuevo — esperando asignación',
+    pin_entrega:pin
+  };
+
+  const r=await fetch(SUPABASE_URL+'/rest/v1/pedidos',{
+    method:'POST',
+    headers:{
+      'apikey':SUPABASE_KEY,
+      'Authorization':'Bearer '+SUPABASE_KEY,
+      'Content-Type':'application/json',
+      'Prefer':'return=representation'
+    },
+    body:JSON.stringify(datos)
+  });
+
+  if(!r.ok){
+    console.error(await r.text());
+    alert('El pedido se creó en la pantalla, pero hubo un problema al guardarlo en Supabase.');
+    return;
+  }
+
+  const resultado=await r.json();
+  console.log('Pedido guardado en Supabase:',resultado);
+}
+ 
 </script>
 <div class="card" id="pilotOperations">
 <h2>🚚 Operación del piloto</h2>
