@@ -263,7 +263,7 @@ async function guardarPedidoSupabase(){
   });
 
   if(!r.ok){
-    console.error(await r.text());
+    const error=await r.text();alert('ERROR SUPABASE: '+error);
     alert('El pedido se creó en la pantalla, pero hubo un problema al guardarlo en Supabase.');
     return;
   }
