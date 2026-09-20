@@ -257,7 +257,7 @@ async function guardarPedidoSupabase(){
       'apikey':SUPABASE_KEY,
       
       'Content-Type':'application/json',
-      'Prefer':'return=representation'
+      'Prefer':'return=minimal'
     },
     body:JSON.stringify(datos)
   });
@@ -268,9 +268,8 @@ async function guardarPedidoSupabase(){
     return;
   }
 
-  const resultado=await r.json();
-  console.log('Pedido guardado en Supabase:',resultado);
-}
+
+  
  
 </script>
 <div class="card" id="pilotOperations">
