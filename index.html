@@ -447,5 +447,18 @@ async function guardarPedidoSupabase(){
 <script>
 const SQUARE_APP_ID = 'sq0idp-B2dvWP-EGjgS-GiioheRmg';
 const SQUARE_LOCATION_ID = 'LVJ3K5N4J';
+let squareCard;
+
+async function iniciarSquare() {
+  const payments = Square.payments(SQUARE_APP_ID, SQUARE_LOCATION_ID);
+  squareCard = await payments.card();
+  await squareCard.attach('#card-container');
+}
+
+iniciarSquare().catch(error => {
+  console.error(error);
+  document.getElementById('square-payment-status').textContent =
+    'No se pudo cargar el formulario de pago.';
+}); 
 </script>
 </body></html>
