@@ -1,0 +1,494 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mercadito 7.0</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<style>
+:root{--g:#126a45;--gd:#083f2a;--bg:#fff8e9;--line:#d7e4dd;--ink:#17352a;--soft:#eef6f2}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;color:var(--ink)}
+.app{max-width:920px;margin:auto;padding:14px}.hero{background:linear-gradient(135deg,var(--g),var(--gd));color:white;padding:22px;border-radius:22px}.brand{font-size:31px;font-weight:950}.sub{opacity:.9}
+.tabs{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin:12px 0}button{border:0;border-radius:12px;padding:12px;font-weight:850;background:#e3eee8;color:var(--g);cursor:pointer}.tabs .on,.primary{background:var(--g);color:#fff}.view{display:none}.view.on{display:block}
+.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;margin:12px 0}.status{padding:12px;border-radius:12px;background:var(--soft);margin:9px 0}.ok{background:#e8f7ee;border:1px solid #b7dec6}.warn{background:#fff3cf;border:1px solid #efd078}.bad{background:#fff0ef;border:1px solid #e4b7b3}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.row3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}label{display:block;font-size:13px;font-weight:850;margin:10px 0 5px}input,textarea,select{width:100%;padding:12px;border:1px solid #c7d7cf;border-radius:11px;font:inherit}.primary{width:100%}
+.stop,.driver{border:1px solid var(--line);border-radius:14px;padding:13px;margin:9px 0}.money{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--line);padding:9px 0}.total{font-size:20px;font-weight:950}.muted{font-size:13px;color:#687970}.hidden{display:none}
+.wallet{background:#111;color:#fff;border-radius:24px;padding:19px;min-height:215px;position:relative;overflow:hidden}.wallet:after{content:"";position:absolute;width:220px;height:220px;border-radius:50%;background:#1d6c4e;right:-80px;top:-75px}.wallet>*{position:relative;z-index:2}.wallet .name{font-size:27px;font-weight:950;margin-top:43px}.digits{letter-spacing:3px;margin-top:20px}.pill{display:inline-block;padding:5px 9px;border-radius:99px;background:#e8f3ed;font-size:12px;font-weight:800;margin:3px}
+.authBox{display:none;position:fixed;inset:0;background:#0009;z-index:2000;padding:18px;align-items:center;justify-content:center}.authBox.on{display:flex}.authPanel{background:white;width:min(430px,100%);border-radius:20px;padding:20px}.authBar{display:flex;justify-content:space-between;align-items:center;margin:8px 0}.authBar button{padding:8px 12px}
+.liveMap{height:360px;border:1px solid var(--line);border-radius:16px;margin-top:12px;overflow:hidden}.mapActions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.storeResult{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+@media(max-width:620px){.tabs{grid-template-columns:repeat(2,1fr)}.row,.row3{grid-template-columns:1fr}}
+</style><script src="https://web.squarecdn.com/v1/square.js"></script></head><body>
+<div style="position:sticky;top:0;z-index:999;background:#fff3cd;border-bottom:1px solid #ffe69c;padding:10px 14px;text-align:center;font-weight:700">
+MERCADITO — Pedidos, GPS, mapa, tiendas cercanas y panel de operación. Pago final seguro: el cliente revisa el desglose completo y autoriza un solo cobro con Square.
+</div>
+<div class="app">
+<div class="hero"><div class="brand">MERCADITO 7.0</div><div class="sub">Cliente • Conductores • Ruta • Compras • Monedero • Entrega</div></div>
+<div class="authBar"><span id="sessionLabel" class="muted">Cliente: no necesita iniciar sesión</span><button id="logoutBtn" class="hidden">Cerrar sesión</button></div>
+<div class="tabs"><button class="on" data-v="cliente">🛒 Cliente</button><button data-v="driver">🚗 Conductor</button><button data-v="wallet">💳 Cartera</button><button data-v="admin">📊 Administrador</button><button data-v="driversAdmin">👥 Conductores</button><button data-v="ruta">🗺️ Ruta</button></div>
+
+<div id="authBox" class="authBox"><div class="authPanel"><h2>Acceso de personal</h2><p class="muted">Solo administradores y drivers autorizados.</p><label>Correo electrónico</label><input id="loginEmail" type="email" autocomplete="username" placeholder="correo@email.com"><label>Contraseña</label><input id="loginPassword" type="password" autocomplete="current-password"><div id="loginMessage" class="status">Ingresa con la cuenta creada en Supabase.</div><div class="row"><button class="primary" id="loginBtn">Entrar</button><button id="cancelLogin">Cancelar</button></div></div></div>
+
+<section id="cliente" class="view on">
+<div class="card"><h2>1. Datos de contacto</h2>
+<div class="row"><div><label>Nombre completo</label><input id="customerName" autocomplete="name" placeholder="Nombre del cliente"></div><div><label>Teléfono celular</label><input id="customerPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="Ej. 346-555-1234"></div></div>
+<p class="muted">Usaremos este número solamente para comunicarnos sobre este pedido.</p>
+</div>
+<div class="card"><h2>2. Dirección de entrega</h2>
+<div class="row"><div><label>Número</label><input id="streetNumber" placeholder="1234"></div><div><label>Calle</label><input id="streetName" placeholder="Main St"></div></div>
+<label>Apartamento / Unidad (opcional)</label><input id="unit" placeholder="Apt 205">
+<div class="row3"><div><label>Ciudad</label><input id="city" value="Houston"></div><div><label>Estado</label><input id="state" value="TX" maxlength="2"></div><div><label>Código postal</label><input id="zipCode" placeholder="77047"></div></div>
+<button class="primary" id="useCustomerGps" type="button" style="margin-top:10px">📍 Usar mi ubicación actual</button>
+<div id="customerGpsState" class="status">GPS todavía no activado. También puedes escribir la dirección manualmente.</div>
+</div>
+<div class="card"><h2>🔎 Tiendas cerca de ti</h2><p>Activa tu ubicación o completa la dirección. Después busca una tienda o tipo, por ejemplo <b>La Michoacana</b>, <b>panadería</b> o <b>supermercado</b>.</p><div class="status ok">Mercadito consultará comercios reales cercanos en OpenStreetMap. Confirma el nombre y la dirección antes de enviar el pedido.</div><div id="customerMap" class="liveMap"></div></div>
+<div class="card"><h2>3. ¿Qué necesitas?</h2><div id="stops"></div><button id="addStop">+ Agregar otra tienda</button>
+<div class="money"><span>Número de paradas</span><b id="stopCount">1</b></div><div class="money"><span>Servicio Mercadito</span><b id="service">$18.00</b></div></div>
+<div class="card"><h2>4. Pago</h2><div class="status ok">🔒 No se cobra nada al crear el pedido. Cuando el conductor registre el total real de la tienda, verás el desglose completo y podrás autorizar un único cobro con Square.</div></div>
+<div class="card"><button class="primary" id="placeOrder">Hacer pedido</button><div id="clientState" class="status">Completa el pedido.</div></div>
+<div id="approvalCard" class="card hidden"><h2>🔔 Tu conductor está en caja</h2><div id="approvalText" class="status warn"></div><div id="approvalBreakdown"></div><div class="status">Al continuar, autorizas un solo cobro por el total mostrado. El cobro se procesa de forma segura con Square.</div><div class="row"><button class="primary" id="approve">Continuar al pago</button><button id="reject">Rechazar</button></div></div>
+<div class="card"><h2>Seguimiento</h2><div id="tracking" class="status">Aún no hay pedido activo.</div><div id="clientLedger"></div><div class="money"><span>Servicio</span><b id="clientFee">$18.00</b></div><div class="money total"><span>Total hasta ahora</span><span id="clientTotal">$18.00</span></div></div>
+ <div id="square-payment-box" class="card hidden">
+  <h2>💳 Autorizar y pagar</h2>
+  <div id="square-breakdown" class="status"></div>
+  <div id="card-container"></div>
+  <button type="button" class="primary" id="square-pay-button">Autorizar y pagar total</button>
+  <div id="square-payment-status" class="status"></div>
+ </div>
+<div id="pinCard" class="card hidden"><h2>PIN de entrega</h2><div class="status warn">Dile este PIN al driver solamente cuando recibas tu pedido: <b id="pinDisplay" style="font-size:25px">4826</b></div></div>
+</section>
+
+<section id="driver" class="view">
+<div class="card"><h2>Panel del driver</h2><label>Driver</label><select id="driverSelect"><option>Carlos</option><option>José</option><option>Luis</option></select><div id="driverAvailability" class="status">🟢 Disponible</div><button id="toggleAvailable">Cambiar disponibilidad</button><h3>Ubicación GPS</h3><div id="driverGpsState" class="status">Ubicación sin compartir.</div><div class="mapActions"><button class="primary" id="startDriverGps" type="button">📍 Compartir ubicación</button><button id="stopDriverGps" type="button" disabled>Detener</button></div><p class="muted">La ubicación se comparte únicamente mientras esta página permanezca abierta y tú lo autorices.</p></div>
+<div class="card"><h2>📦 Pedidos asignados a mi cuenta</h2><div id="driverCloudOrders" class="status">Inicia sesión como driver para consultar pedidos.</div></div>
+<div id="offerCard" class="card hidden"><h2>🔔 Pedido ofrecido</h2><div id="offerInfo"></div><div class="row"><button class="primary" id="acceptOrder">Aceptar pedido</button><button id="declineOrder">Rechazar</button></div></div>
+<div id="workCard" class="card hidden"><h2>Pedido activo</h2><div id="progress" class="status"></div><div id="currentStore"></div><label>Total EXACTO de la caja</label><input id="amount" type="number" step=".01" placeholder="Ej. 56.43"><button class="primary" id="sendTotal" style="margin-top:9px">Enviar total al cliente</button><div id="driverMsg" class="status">🔒 Esperando aprobación.</div><button class="primary" id="openWallet" disabled>Ir a Wallet</button><label>Subir recibo</label><input id="receipt" type="file" accept="image/*"><button class="primary" id="nextStop" disabled style="margin-top:9px">Guardar recibo y siguiente parada</button></div>
+<div id="deliveryCard" class="card hidden"><h2>Entrega</h2><div id="deliveryAddress" class="status"></div><button class="primary" id="arrived">Llegué a la dirección</button><label>PIN del cliente</label><input id="pinInput" maxlength="4" placeholder="4 dígitos"><button class="primary" id="completeDelivery" style="margin-top:9px">Confirmar entrega</button></div>
+</section>
+
+<section id="wallet" class="view"><div class="card"><h2>Wallet del driver</h2><div class="wallet"><div>MERCADITO • DRIVER</div><div class="name">Mercadito Card</div><div class="digits">•••• •••• •••• 4001</div><div id="walletDriver">Sin driver asignado</div><div id="walletLimit">Disponible: $0.00</div></div><div id="walletState" class="status">🔒 Tarjeta bloqueada.</div><button class="primary" id="tapPay" disabled>Registrar pago realizado en terminal</button><p class="muted">Simulación visual. No es una tarjeta bancaria real.</p></div></section>
+
+<section id="admin" class="view">
+<div class="card"><h2>📥 Pedidos recibidos</h2><p class="muted">Se actualizan automáticamente desde todos los teléfonos.</p><button id="refreshCloudOrders" type="button">Actualizar ahora</button><div id="adminCloudOrders" class="status">Inicia sesión como administrador para consultar pedidos.</div></div>
+<div class="card"><h2>Pedido #4001</h2><div id="adminOrder" class="status">Esperando pedido.</div><div id="adminStops"></div></div>
+<div class="card"><h2>Asignar driver</h2><div id="drivers"></div></div>
+<div class="card"><h2>Estado y finanzas</h2><div id="adminStatus" class="status">Sin pedido</div><div id="adminLedger"></div><div class="money"><span>Servicio cobrado</span><b id="adminFee">$18.00</b></div><div class="money"><span>Ganancia estimada driver</span><b id="driverPay">$0.00</b></div><div class="money"><span>Ingreso Mercadito</span><b id="marketRevenue">$18.00</b></div><div class="money total"><span>Total cliente</span><span id="adminTotal">$18.00</span></div></div>
+</section>
+
+<section id="driversAdmin" class="view">
+<div class="card"><h2>Administrar drivers</h2>
+<p class="muted">Agrega, edita o desactiva drivers. Los datos se guardan en este navegador para la demostración.</p>
+<input type="hidden" id="editDriverId">
+<div class="row"><div><label>Nombre completo</label><input id="drvName" placeholder="Ej. Carlos Rodríguez"></div><div><label>Teléfono</label><input id="drvPhone" placeholder="(346) 555-0123"></div></div>
+<div class="row"><div><label>Correo</label><input id="drvEmail" type="email" placeholder="driver@email.com"></div><div><label>Zona de trabajo</label><input id="drvZone" placeholder="Ej. South Houston / Pearland"></div></div>
+<div class="row3"><div><label>Tipo de vehículo</label><select id="drvType"><option>Carro</option><option>SUV</option><option>Pickup</option><option>Van</option></select></div><div><label>Marca / Modelo</label><input id="drvVehicle" placeholder="Toyota RAV4 2024"></div><div><label>Color</label><input id="drvColor" placeholder="Gris"></div></div>
+<div class="row"><div><label>Placa</label><input id="drvPlate" placeholder="ABC-1234"></div><div><label>Capacidad</label><input id="drvCapacity" placeholder="Ej. 8 bolsas / 300 lb"></div></div>
+<div class="row"><div><label>Licencia vence</label><input id="drvLicenseExp" type="date"></div><div><label>Seguro vence</label><input id="drvInsuranceExp" type="date"></div></div>
+<div class="row"><button class="primary" id="saveDriver">Guardar driver</button><button id="cancelEdit">Limpiar</button></div>
+</div>
+<div class="card"><h2>Drivers registrados</h2><div id="driverProfiles"></div></div>
+</section>
+
+<section id="ruta" class="view">
+<div class="card"><h2>🗺️ Ruta del pedido</h2>
+<div id="routeState" class="status">Crea y asigna un pedido para preparar la ruta.</div>
+<div id="routeSummary"></div>
+<div id="routeMap" class="liveMap"></div>
+<div class="status ok"><b>Mapa real:</b> muestra el GPS disponible, las tiendas seleccionadas y el domicilio. El botón abre la navegación en Google Maps.</div>
+<button class="primary" id="openGoogleRoute">Abrir esta ruta en Google Maps</button>
+</div>
+<div class="card"><h2>📍 Ubicación de drivers</h2><div id="driverMapList"></div><p class="muted">En producción, la ubicación se actualizará únicamente cuando el driver esté disponible o tenga un pedido activo y haya dado permiso.</p></div>
+</section>
+</div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script><script>
+const SUPABASE_URL='https://ywxposyjlwsbjxlveuqi.supabase.co';
+const SUPABASE_KEY='sb_publishable_uwCWPrg7FVqoRTdmOT7jQg_YOOsxd4y';
+let stopData=[{store:'',address:'',items:''}],fee=18,cardSaved=true,last='Square',placed=false,assigned=null,accepted=false,available=true,idx=0,paid=[],pending=null,approved=false,paymentDone=false,status='Sin pedido',pin='4826';
+let currentOrderId=null;
+function money(v){return '$'+Number(v||0).toFixed(2)}
+function checkoutBreakdown(storeTotal){const driver=calcDriverPay();const mercadito=Math.max(0,fee-driver);const products=Number(storeTotal||0);return {products,driver,mercadito,total:products+driver+mercadito};}
+function breakdownHtml(b){return `<div class="money"><span>Productos de la tienda</span><b>${money(b.products)}</b></div><div class="money"><span>Servicio del conductor</span><b>${money(b.driver)}</b></div><div class="money"><span>Servicio Mercadito</span><b>${money(b.mercadito)}</b></div><div class="money total"><span>TOTAL A PAGAR</span><b>${money(b.total)}</b></div>`;}
+let customerCoords=null,driverCoords=null,customerMap=null,routeMap=null,customerLayer=null,routeLayer=null,driverWatchId=null,locationPollTimer=null,lastGpsUpload=0,liveDriverLocations=[],orderPollTimer=null,cloudOrders=[],cloudDrivers=[];
+const fees={1:18,2:28,3:38,4:48,5:58};
+let driverProfiles=JSON.parse(localStorage.getItem('mercaditoDrivers')||'null')||[
+{id:'DRV1001',name:'Carlos',phone:'',email:'',zone:'Houston',type:'Carro',vehicle:'',color:'',plate:'',capacity:'',licenseExp:'',insuranceExp:'',miles:1.8,active:true,available:true,deliveries:0,earnings:0},
+{id:'DRV1002',name:'José',phone:'',email:'',zone:'Houston',type:'Carro',vehicle:'',color:'',plate:'',capacity:'',licenseExp:'',insuranceExp:'',miles:4.3,active:true,available:true,deliveries:0,earnings:0},
+{id:'DRV1003',name:'Luis',phone:'',email:'',zone:'Houston',type:'Carro',vehicle:'',color:'',plate:'',capacity:'',licenseExp:'',insuranceExp:'',miles:7.1,active:true,available:true,deliveries:0,earnings:0}
+];
+function saveProfiles(){localStorage.setItem('mercaditoDrivers',JSON.stringify(driverProfiles));refreshDriverSelect()}
+function getDriver(name){return driverProfiles.find(d=>d.name===name)}
+function refreshDriverSelect(){let current=driverSelect.value;driverSelect.innerHTML=driverProfiles.filter(d=>d.active).map(d=>`<option>${d.name}</option>`).join('');if([...driverSelect.options].some(o=>o.value===current))driverSelect.value=current}
+
+const protectedViews={driver:['driver','admin'],wallet:['driver','admin'],admin:['admin'],driversAdmin:['admin'],ruta:['driver','admin']};
+let requestedView='cliente';
+function getSession(){try{return JSON.parse(sessionStorage.getItem('mercaditoSession')||'null')}catch{return null}}
+function updateSessionBar(){let s=getSession();sessionLabel.textContent=s?`${s.full_name||s.email} • ${s.role==='admin'?'Administrador':'Driver'}`:'Cliente: no necesita iniciar sesión';logoutBtn.classList.toggle('hidden',!s);document.querySelectorAll('.tabs button').forEach(b=>{let roles=protectedViews[b.dataset.v];b.classList.toggle('hidden',!!(s&&roles&&!roles.includes(s.role)))})}
+function allowed(v){let roles=protectedViews[v];if(!roles)return true;let s=getSession();return !!(s&&s.active!==false&&roles.includes(s.role))}
+function show(v){if(!allowed(v)){requestedView=v;let s=getSession();if(s){v=s.role==='admin'?'admin':s.role==='driver'?'driver':'cliente';if(!allowed(v))v='cliente';alert('Esta cuenta no tiene permiso para entrar en esa sección.')}else{loginMessage.className='status';loginMessage.textContent='Ingresa con tu cuenta de administrador o driver.';authBox.classList.add('on');return}}document.querySelectorAll('.tabs button,.view').forEach(x=>x.classList.remove('on'));let tab=document.querySelector(`[data-v="${v}"]`);if(tab)tab.classList.add('on');document.getElementById(v).classList.add('on');render()}
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>show(b.dataset.v));
+loginBtn.onclick=async()=>{let email=loginEmail.value.trim(),password=loginPassword.value;if(!email||!password)return alert('Escribe correo y contraseña.');loginBtn.disabled=true;loginMessage.className='status warn';loginMessage.textContent='Verificando…';try{let a=await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=password',{method:'POST',headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password})});let auth=await a.json();if(!a.ok)throw new Error('Correo o contraseña incorrectos.');let p=await fetch(SUPABASE_URL+'/rest/v1/profiles?id=eq.'+encodeURIComponent(auth.user.id)+'&select=full_name,role,active',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+auth.access_token}});let rows=await p.json();if(!p.ok||!rows[0]||rows[0].active===false)throw new Error('La cuenta no tiene un perfil autorizado.');let session={email,user_id:auth.user.id,access_token:auth.access_token,...rows[0]};let requiredRoles=protectedViews[requestedView];if(requiredRoles&&!requiredRoles.includes(session.role))throw new Error('Esta cuenta no tiene permiso para entrar en esta sección.');sessionStorage.setItem('mercaditoSession',JSON.stringify(session));updateSessionBar();startLocationPolling();startOrderPolling();authBox.classList.remove('on');loginPassword.value='';show(requestedView)}catch(e){sessionStorage.removeItem('mercaditoSession');updateSessionBar();loginMessage.className='status bad';loginMessage.textContent=e.message}finally{loginBtn.disabled=false}};
+cancelLogin.onclick=()=>authBox.classList.remove('on');logoutBtn.onclick=()=>{removeSharedLocation();stopDriverTracking();stopLocationPolling();stopOrderPolling();sessionStorage.removeItem('mercaditoSession');liveDriverLocations=[];cloudOrders=[];cloudDrivers=[];updateSessionBar();show('cliente')};
+function addr(){return `${streetNumber.value} ${streetName.value}${unit.value.trim()?', '+unit.value.trim():''}, ${city.value}, ${state.value.toUpperCase()} ${zipCode.value}`}
+function sync(){document.querySelectorAll('.storeName').forEach(x=>stopData[+x.dataset.i].store=x.value);document.querySelectorAll('.items').forEach(x=>stopData[+x.dataset.i].items=x.value);document.querySelectorAll('.storeAddress').forEach(x=>stopData[+x.dataset.i].address=x.value)}
+function drawStops(){stops.innerHTML='';stopData.forEach((s,n)=>{let d=document.createElement('div');d.className='stop';d.innerHTML=`<b>Parada ${n+1}</b><label>Categoría</label><select><option>Mercado / Carnicería</option><option>Panadería</option><option>Antojitos / Taquería</option><option>Food trailer</option><option>Otro</option></select><label>Buscar tienda</label><div class="row"><input class="storeSearch" data-i="${n}" value="${s.store}" placeholder="Ej. La Michoacana o panadería"><button type="button" onclick="searchNearby(${n})">Buscar cerca</button></div><div id="nearby-${n}" class="nearbyResults"></div><input type="hidden" class="storeName" data-i="${n}" value="${s.store}"><input type="hidden" class="storeAddress" data-i="${n}" value="${s.address||''}"><div id="selected-${n}" class="status ${s.store?'ok':''}">${s.store?`✅ ${s.store}<br>📍 ${s.address}`:'Selecciona una sucursal de los resultados.'}</div><label>Artículos</label><textarea class="items" data-i="${n}" placeholder="Ej. 2 lb fajita, tortillas, aguacates">${s.items}</textarea>`;stops.appendChild(d)});fee=fees[stopData.length]||58;stopCount.textContent=stopData.length;service.textContent=clientFee.textContent=adminFee.textContent='$'+fee.toFixed(2)}
+addStop.onclick=()=>{sync();if(stopData.length>=5)return alert('Máximo 5 tiendas en esta demo.');stopData.push({store:'',address:'',items:''});drawStops();render()}
+placeOrder.onclick=async()=>{
+ sync();
+ if(!customerName.value.trim())return alert('Escribe el nombre del cliente.');
+ const phoneDigits=customerPhone.value.replace(/\D/g,'');
+ if(phoneDigits.length<10)return alert('Escribe un número de teléfono válido de 10 dígitos.');
+ if(!streetNumber.value.trim()||!streetName.value.trim()||!city.value.trim()||!state.value.trim()||!zipCode.value.trim())return alert('Completa toda la dirección.');
+ if(stopData.some(s=>!s.store.trim()||!s.address.trim()||!s.items.trim()))return alert('Selecciona cada tienda y escribe sus artículos.');
+ placeOrder.disabled=true;placeOrder.textContent='Guardando pedido…';
+ placed=true;paid=Array(stopData.length).fill(null);status='Nuevo — esperando asignación';
+ clientState.className='status warn';clientState.textContent='⏳ Guardando tu pedido…';render();
+ const saved=await guardarPedidoSupabase();
+ placeOrder.disabled=false;placeOrder.textContent='Hacer pedido';
+ if(!saved){placed=false;status='Sin pedido';render();return}
+ clientState.className='status ok';clientState.textContent='✅ Pedido recibido y guardado correctamente.';
+ render();
+}
+function assignDriver(name){assigned=name;accepted=false;status=`Ofrecido a ${name}`;driverSelect.value=name;offerCard.classList.remove('hidden');render();show('driver')}
+acceptOrder.onclick=()=>{if(driverSelect.value!==assigned)return alert(`Este pedido fue ofrecido a ${assigned}.`);accepted=true;status=`Aceptado por ${assigned}`;offerCard.classList.add('hidden');workCard.classList.remove('hidden');tracking.className='status ok';render()}
+declineOrder.onclick=()=>{status=`${assigned} rechazó — reasignar`;assigned=null;offerCard.classList.add('hidden');render();show('admin')}
+toggleAvailable.onclick=()=>{available=!available;driverAvailability.textContent=available?'🟢 Disponible':'⚫ No disponible';driverAvailability.className=available?'status ok':'status';render()}
+sendTotal.onclick=async()=>{let v=Number(amount.value);if(!v||v<=0)return alert('Escribe el total exacto de la caja.');pending=v;const b=checkoutBreakdown(v);status=`Esperando autorización y pago del cliente — ${stopData[idx].store}`;driverMsg.className='status warn';driverMsg.textContent='⏳ Esperando autorización y pago del cliente.';approvalCard.classList.remove('hidden');approvalText.innerHTML=`<b>${stopData[idx].store}</b><br>Artículos: ${stopData[idx].items}`;approvalBreakdown.innerHTML=breakdownHtml(b);render();show('cliente')}
+approve.onclick=()=>{approved=true;approvalCard.classList.add('hidden');const b=checkoutBreakdown(pending);squareBreakdown.innerHTML=breakdownHtml(b);document.getElementById('square-payment-box').classList.remove('hidden');status=`Cliente revisando pago — ${stopData[idx].store}`;clientState.className='status warn';clientState.innerHTML=`💳 Total a autorizar con Square: <b>${money(b.total)}</b>`;render();show('cliente');document.getElementById('square-payment-box').scrollIntoView({behavior:'smooth'})}
+reject.onclick=()=>{approvalCard.classList.add('hidden');status='Compra rechazada por cliente';clientState.className='status bad';clientState.textContent='❌ Rechazaste la compra.';driverMsg.className='status bad';driverMsg.textContent='❌ Cliente rechazó. Corrige el pedido o el total.';pending=null;lockWallet();render();show('driver')}
+openWallet.onclick=()=>show('wallet');
+tapPay.onclick=()=>{if(!approved)return;paymentDone=true;status=`Pagado — ${stopData[idx].store}`;walletState.className='status ok';walletState.innerHTML=`✅ Tap simulado: <b>$${pending.toFixed(2)}</b> pagado. Tarjeta bloqueada otra vez.`;walletLimit.textContent='Disponible: $0.00';tapPay.disabled=true;driverMsg.className='status ok';driverMsg.innerHTML=`✅ Pago $${pending.toFixed(2)} completado. Sube el recibo.`;nextStop.disabled=false;render()}
+nextStop.onclick=()=>{if(!paymentDone)return;paid[idx]=pending;idx++;pending=null;approved=false;paymentDone=false;amount.value='';nextStop.disabled=true;lockWallet();if(idx<stopData.length){status=`En compras — parada ${idx+1}`;driverMsg.className='status';driverMsg.textContent='🔒 Esperando aprobación.';render();show('driver')}else{status='En camino a entregar';workCard.classList.add('hidden');deliveryCard.classList.remove('hidden');pinCard.classList.remove('hidden');deliveryAddress.innerHTML=`📍 <b>${addr()}</b>`;render();show('driver')}}
+arrived.onclick=()=>{status='Driver llegó a la dirección';render()}
+completeDelivery.onclick=()=>{if(pinInput.value!==pin)return alert('PIN incorrecto.');status='Entregado ✅';deliveryCard.classList.add('hidden');clientState.className='status ok';clientState.textContent='✅ Pedido entregado correctamente.';pinCard.classList.add('hidden');render();show('admin')}
+function lockWallet(){openWallet.disabled=true;tapPay.disabled=true;walletLimit.textContent='Disponible: $0.00';walletState.className='status';walletState.textContent='🔒 Tarjeta bloqueada.'}
+function render(){
+ drawLedger(); renderRoute(); if(document.getElementById('driverProfiles'))renderDriverProfiles();
+ if(!placed){drawDrivers();return}
+ tracking.innerHTML=`<b>Estado:</b> ${status}${assigned?`<br><b>Driver:</b> ${assigned}`:''}`;
+ let contactPhone=customerPhone.value.trim();
+ adminOrder.innerHTML=`👤 <b>${customerName.value.trim()}</b><br>📞 <b>${contactPhone}</b> • <a href="tel:${contactPhone.replace(/[^\d+]/g,'')}">Llamar</a> • <a href="sms:${contactPhone.replace(/[^\d+]/g,'')}">Mensaje</a><br>📍 <b>${addr()}</b><br>${stopData.length} parada(s) • Visa cliente •••• ${last}`;
+ adminStops.innerHTML=stopData.map((s,j)=>`<div class="stop"><b>${j+1}. ${s.store}</b><div>${s.address||''}</div><div>${s.items}</div></div>`).join('');
+ adminStatus.innerHTML=`<b>${status}</b>${assigned?`<br>Driver asignado: ${assigned} • ${getDriver(assigned).miles} mi de la primera tienda`:''}`;
+ if(assigned){walletDriver.textContent=`Driver: ${assigned}`}
+ if(assigned&&!accepted){offerInfo.innerHTML=`<div class="status"><b>${stopData.length} parada(s)</b><br>Primera tienda: ${stopData[0].store}<br>Distancia simulada: ${getDriver(assigned).miles} mi<br>Entrega: ${addr()}<br>Ganancia estimada: $${calcDriverPay().toFixed(2)}</div>`}
+ if(accepted){progress.textContent=idx<stopData.length?`Parada ${idx+1} de ${stopData.length}`:'Compras terminadas';currentStore.innerHTML=idx<stopData.length?`<div class="stop"><h3>${stopData[idx].store}</h3><div>📍 ${stopData[idx].address||''}</div><div>${stopData[idx].items}</div></div>`:''}
+ drawDrivers();
+}
+function calcDriverPay(){return Math.round(fee*.72)}
+function drawDrivers(){drivers.innerHTML='';driverProfiles.filter(x=>x.active&&x.available).forEach(p=>{let n=p.name,d=document.createElement('div');d.className='driver';let disabled=!placed||assigned;d.innerHTML=`<div><b>${n}</b> <span class="pill">${p.miles} mi</span> <span class="pill">Disponible</span></div><div class="muted">${p.type}${p.vehicle?' • '+p.vehicle:''}${p.zone?' • '+p.zone:''}</div><button class="primary" style="margin-top:8px" ${disabled?'disabled':''} onclick="assignDriver('${n.replace(/'/g,"\\'")}')">Asignar pedido</button>`;drivers.appendChild(d)})}
+function drawLedger(){let sum=0,h='';if(placed)stopData.forEach((s,j)=>{let v=paid[j];if(v!=null)sum+=v;h+=`<div class="money"><span>${s.store}</span><b>${v==null?'Pendiente':'$'+v.toFixed(2)+' ✅'}</b></div>`});clientLedger.innerHTML=h||'<div class="muted">Todavía no hay compras.</div>';adminLedger.innerHTML=h;let dp=placed?calcDriverPay():0;clientTotal.textContent=adminTotal.textContent='$'+(sum+fee).toFixed(2);driverPay.textContent='$'+dp.toFixed(2);marketRevenue.textContent='$'+Math.max(0,fee-dp).toFixed(2)}
+
+function clearDriverForm(){editDriverId.value='';['drvName','drvPhone','drvEmail','drvZone','drvVehicle','drvColor','drvPlate','drvCapacity','drvLicenseExp','drvInsuranceExp'].forEach(id=>document.getElementById(id).value='');drvType.value='Carro'}
+saveDriver.onclick=()=>{
+ let name=drvName.value.trim(); if(!name)return alert('Escribe el nombre del driver.');
+ let id=editDriverId.value;
+ if(id){
+   let p=driverProfiles.find(x=>x.id===id);
+   Object.assign(p,{name,phone:drvPhone.value.trim(),email:drvEmail.value.trim(),zone:drvZone.value.trim(),type:drvType.value,vehicle:drvVehicle.value.trim(),color:drvColor.value.trim(),plate:drvPlate.value.trim(),capacity:drvCapacity.value.trim(),licenseExp:drvLicenseExp.value,insuranceExp:drvInsuranceExp.value});
+ }else{
+   driverProfiles.push({id:'DRV'+String(Date.now()).slice(-6),name,phone:drvPhone.value.trim(),email:drvEmail.value.trim(),zone:drvZone.value.trim(),type:drvType.value,vehicle:drvVehicle.value.trim(),color:drvColor.value.trim(),plate:drvPlate.value.trim(),capacity:drvCapacity.value.trim(),licenseExp:drvLicenseExp.value,insuranceExp:drvInsuranceExp.value,miles:Number((1+Math.random()*8).toFixed(1)),active:true,available:true,deliveries:0,earnings:0});
+ }
+ saveProfiles();clearDriverForm();renderDriverProfiles();render();alert('Driver guardado.');
+}
+cancelEdit.onclick=clearDriverForm;
+function editDriver(id){
+ let p=driverProfiles.find(x=>x.id===id);if(!p)return;
+ editDriverId.value=p.id;drvName.value=p.name;drvPhone.value=p.phone;drvEmail.value=p.email;drvZone.value=p.zone;drvType.value=p.type;drvVehicle.value=p.vehicle;drvColor.value=p.color;drvPlate.value=p.plate;drvCapacity.value=p.capacity;drvLicenseExp.value=p.licenseExp;drvInsuranceExp.value=p.insuranceExp;show('driversAdmin');window.scrollTo(0,0)
+}
+function toggleDriver(id){
+ let p=driverProfiles.find(x=>x.id===id);if(!p)return;p.active=!p.active;saveProfiles();renderDriverProfiles();render()
+}
+function toggleDriverAvailable(id){
+ let p=driverProfiles.find(x=>x.id===id);if(!p)return;p.available=!p.available;saveProfiles();renderDriverProfiles();render()
+}
+function renderDriverProfiles(){
+ driverProfiles.forEach((p,i)=>p.miles=p.miles||Number((1.5+i*2.1).toFixed(1)));
+ driverProfiles.length?driverProfiles:saveProfiles();
+ driverProfilesEl=document.getElementById('driverProfiles');
+ driverProfilesEl.innerHTML=driverProfiles.map(p=>`<div class="driver">
+ <div><b>${p.name}</b> <span class="pill">${p.id}</span> <span class="pill">${p.active?'Activo':'Desactivado'}</span> <span class="pill">${p.available?'Disponible':'No disponible'}</span></div>
+ <div class="muted">${p.phone||'Sin teléfono'} • ${p.email||'Sin correo'}<br>${p.type}${p.vehicle?' • '+p.vehicle:''}${p.color?' • '+p.color:''}${p.plate?' • Placa '+p.plate:''}<br>Zona: ${p.zone||'No indicada'}${p.capacity?' • Capacidad: '+p.capacity:''}<br>Licencia vence: ${p.licenseExp||'—'} • Seguro vence: ${p.insuranceExp||'—'}<br>Entregas: ${p.deliveries||0} • Ganancias: $${Number(p.earnings||0).toFixed(2)}</div>
+ <div class="row3" style="margin-top:8px"><button onclick="editDriver('${p.id}')">Editar</button><button onclick="toggleDriverAvailable('${p.id}')">${p.available?'No disponible':'Disponible'}</button><button onclick="toggleDriver('${p.id}')">${p.active?'Desactivar':'Activar'}</button></div></div>`).join('');
+}
+refreshDriverSelect();renderDriverProfiles();
+
+
+function customerAddressReady(){
+ return streetNumber.value.trim()&&streetName.value.trim()&&city.value.trim()&&state.value.trim()&&zipCode.value.trim()
+}
+function esc(v){return String(v||'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+function milesBetween(a,b){
+ const r=3958.8,p=Math.PI/180,dLat=(b.lat-a.lat)*p,dLon=(b.lon-a.lon)*p;
+ const x=Math.sin(dLat/2)**2+Math.cos(a.lat*p)*Math.cos(b.lat*p)*Math.sin(dLon/2)**2;
+ return 2*r*Math.asin(Math.sqrt(x));
+}
+function initMaps(){
+ if(!window.L)return;
+ if(!customerMap){customerMap=L.map('customerMap').setView([29.7604,-95.3698],10);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(customerMap);customerLayer=L.layerGroup().addTo(customerMap)}
+ if(!routeMap){routeMap=L.map('routeMap').setView([29.7604,-95.3698],10);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(routeMap);routeLayer=L.layerGroup().addTo(routeMap)}
+}
+async function geocodeCustomerAddress(){
+ if(customerCoords)return customerCoords;
+ if(!customerAddressReady())throw new Error('Activa el GPS o completa primero la dirección de entrega.');
+ const u='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=us&q='+encodeURIComponent(addr());
+ const r=await fetch(u,{headers:{'Accept-Language':'es,en'}});if(!r.ok)throw new Error('No se pudo localizar la dirección.');
+ const rows=await r.json();if(!rows[0])throw new Error('No encontramos esa dirección. Revísala o usa el GPS.');
+ customerCoords={lat:Number(rows[0].lat),lon:Number(rows[0].lon)};showCustomerOnMap();return customerCoords;
+}
+function showCustomerOnMap(){
+ initMaps();if(!customerCoords||!customerLayer)return;customerLayer.clearLayers();
+ L.marker([customerCoords.lat,customerCoords.lon]).addTo(customerLayer).bindPopup('Tu ubicación / entrega').openPopup();
+ customerMap.setView([customerCoords.lat,customerCoords.lon],14);setTimeout(()=>customerMap.invalidateSize(),50);
+}
+useCustomerGps.onclick=()=>{
+ if(!navigator.geolocation)return alert('Este teléfono no permite usar GPS desde el navegador.');
+ customerGpsState.className='status warn';customerGpsState.textContent='Buscando tu ubicación…';
+ navigator.geolocation.getCurrentPosition(async p=>{
+   customerCoords={lat:p.coords.latitude,lon:p.coords.longitude};showCustomerOnMap();
+   customerGpsState.className='status ok';customerGpsState.textContent=`✅ Ubicación encontrada con precisión aproximada de ${Math.round(p.coords.accuracy)} metros.`;
+   try{
+    const u=`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${customerCoords.lat}&lon=${customerCoords.lon}`;
+    const r=await fetch(u,{headers:{'Accept-Language':'es,en'}}),j=await r.json(),a=j.address||{};
+    streetNumber.value=a.house_number||streetNumber.value;streetName.value=a.road||a.residential||streetName.value;city.value=a.city||a.town||a.village||city.value;state.value=(a['ISO3166-2-lvl4']||'TX').split('-').pop();zipCode.value=a.postcode||zipCode.value;
+   }catch(e){console.warn('Dirección GPS no disponible',e)}
+ },e=>{customerGpsState.className='status bad';customerGpsState.textContent=e.code===1?'Permiso de ubicación rechazado. Puedes escribir la dirección manualmente.':'No pudimos obtener la ubicación. Activa el GPS e inténtalo nuevamente.'},{enableHighAccuracy:true,timeout:15000,maximumAge:30000});
+};
+async function searchNearby(i){
+ sync();
+ let q=(document.querySelector(`.storeSearch[data-i="${i}"]`).value||'').trim();
+ if(!q)return alert('Escribe el nombre o tipo de tienda.');
+ let box=document.getElementById('nearby-'+i);
+ box.innerHTML='<div class="status warn">Buscando tiendas reales cercanas…</div>';
+ try{
+  const center=await geocodeCustomerAddress(),span=.28;
+  const viewbox=[center.lon-span,center.lat+span,center.lon+span,center.lat-span].join(',');
+  const u='https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=10&countrycodes=us&bounded=1&viewbox='+viewbox+'&q='+encodeURIComponent(q);
+  const r=await fetch(u,{headers:{'Accept-Language':'es,en'}});if(!r.ok)throw new Error('El servicio de mapas no respondió.');
+  let arr=(await r.json()).map(x=>({name:(x.namedetails&&x.namedetails.name)||x.name||x.display_name.split(',')[0],address:x.display_name,lat:Number(x.lat),lon:Number(x.lon)}));
+  arr.forEach(p=>{p.miles=milesBetween(center,p);p.minutes=Math.max(2,Math.round(p.miles*3))});arr.sort((a,b)=>a.miles-b.miles);arr=arr.slice(0,6);
+  if(!arr.length)throw new Error('No encontramos resultados cercanos. Prueba con otro nombre, como supermercado o panadería.');
+  window._nearby=window._nearby||{};window._nearby[i]=arr;
+  box.innerHTML='<div class="status ok"><b>Tiendas encontradas cerca de ti:</b></div>'+arr.map((p,j)=>`<div class="driver storeResult"><div><b>${esc(p.name)}</b><div>📍 ${esc(p.address)}</div><span class="pill">${p.miles.toFixed(1)} mi</span><span class="pill">aprox. ${p.minutes} min</span></div><button type="button" onclick="selectPlace(${i},${j})">Seleccionar</button></div>`).join('');
+  initMaps();customerLayer.clearLayers();L.marker([center.lat,center.lon]).addTo(customerLayer).bindPopup('Tu ubicación');arr.forEach((p,j)=>L.marker([p.lat,p.lon]).addTo(customerLayer).bindPopup(`<b>${esc(p.name)}</b><br>${p.miles.toFixed(1)} mi<br><button onclick="selectPlace(${i},${j})">Seleccionar</button>`));customerMap.fitBounds([[center.lat,center.lon],...arr.map(p=>[p.lat,p.lon])],{padding:[25,25]});
+ }catch(e){box.innerHTML=`<div class="status bad">${esc(e.message)}</div>`}
+}
+function selectPlace(i,j){
+ let p=window._nearby[i][j];
+ stopData[i].store=p.name;stopData[i].address=p.address;stopData[i].lat=p.lat;stopData[i].lon=p.lon;
+ document.querySelector(`.storeName[data-i="${i}"]`).value=p.name;
+ document.querySelector(`.storeAddress[data-i="${i}"]`).value=p.address;
+ document.querySelector(`.storeSearch[data-i="${i}"]`).value=p.name;
+ document.getElementById('selected-'+i).className='status ok';
+ document.getElementById('selected-'+i).innerHTML=`✅ <b>${p.name}</b><br>📍 ${p.address}<br>${p.miles} mi • ${p.minutes} min`;
+ document.getElementById('nearby-'+i).innerHTML='';showCustomerOnMap();L.marker([p.lat,p.lon]).addTo(customerLayer).bindPopup(`<b>${esc(p.name)}</b>`).openPopup();renderRoute();
+}
+
+function routeOrder(){
+ return stopData.map((s,i)=>({i,...s}));
+}
+function renderRoute(){
+ let rs=document.getElementById('routeState'),sum=document.getElementById('routeSummary'),dl=document.getElementById('driverMapList');
+ if(!rs)return;
+ initMaps();
+ const onlineByName=name=>liveDriverLocations.find(x=>(x.driver_name||'').toLowerCase()===String(name||'').toLowerCase());
+ dl.innerHTML=driverProfiles.filter(d=>d.active).map(d=>{let g=onlineByName(d.name),age=g?Math.round((Date.now()-new Date(g.updated_at).getTime())/1000):null;return `<div class="driver"><b>${esc(d.name)}</b> <span class="pill">${d.available?'🟢 Disponible':'⚫ No disponible'}</span><div class="muted">${g?`📍 GPS compartido hace ${Math.max(0,age)} s`:'Ubicación no compartida'}${assigned===d.name?' • Pedido asignado':''}</div></div>`}).join('');
+ routeLayer.clearLayers();
+ let assignedGps=assigned?onlineByName(assigned):null;
+ let mapDriver=assignedGps?{lat:Number(assignedGps.latitude),lon:Number(assignedGps.longitude)}:driverCoords;
+ liveDriverLocations.forEach(g=>L.marker([Number(g.latitude),Number(g.longitude)]).addTo(routeLayer).bindPopup(`🚗 ${esc(g.driver_name)}<br>${new Date(g.updated_at).toLocaleTimeString()}`));
+ if(!placed){rs.textContent='Crea y asigna un pedido para preparar la ruta.';sum.innerHTML='';if(mapDriver)routeMap.setView([mapDriver.lat,mapDriver.lon],14);return}
+ let order=routeOrder();
+ rs.className='status ok';rs.innerHTML=`Ruta preparada para <b>${esc(assigned||'driver por asignar')}</b>.`;
+ sum.innerHTML=`<div class="stop"><b>Inicio:</b> ${assigned?'Ubicación actual de '+assigned:'Ubicación del driver'}</div>`+
+ order.map((s,k)=>`<div class="stop"><b>${k+1}. ${s.store}</b><div>📍 ${s.address}</div></div>`).join('')+
+ `<div class="stop"><b>${order.length+1}. Entrega al cliente</b><div>🏠 ${addr()}</div></div>`;
+ let pts=[];if(mapDriver)pts.push([mapDriver.lat,mapDriver.lon]);
+ order.filter(s=>Number.isFinite(s.lat)&&Number.isFinite(s.lon)).forEach((s,k)=>{pts.push([s.lat,s.lon]);L.marker(pts.at(-1)).addTo(routeLayer).bindPopup(`<b>${k+1}. ${esc(s.store)}</b>`)});
+ if(customerCoords){pts.push([customerCoords.lat,customerCoords.lon]);L.marker(pts.at(-1)).addTo(routeLayer).bindPopup('🏠 Entrega')}
+ if(pts.length>1)L.polyline(pts,{color:'#126a45',weight:5,dashArray:'10 8'}).addTo(routeLayer);if(pts.length)routeMap.fitBounds(pts,{padding:[35,35]});setTimeout(()=>routeMap.invalidateSize(),50);
+}
+async function publishDriverLocation(){
+ const s=getSession();if(!s||!driverCoords)return;
+ const now=Date.now();if(now-lastGpsUpload<8000)return;lastGpsUpload=now;
+ const body={user_id:s.user_id,driver_name:s.full_name||s.email,latitude:driverCoords.lat,longitude:driverCoords.lon,accuracy:driverCoords.accuracy,updated_at:new Date().toISOString()};
+ try{
+  const r=await fetch(SUPABASE_URL+'/rest/v1/driver_locations?on_conflict=user_id',{method:'POST',headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+s.access_token,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(body)});
+  if(!r.ok)throw new Error(await r.text());
+ }catch(e){console.error('GPS Supabase:',e);driverGpsState.className='status warn';driverGpsState.textContent='GPS del teléfono activo, pero falta activar la tabla de ubicación en Supabase.'}
+}
+async function loadDriverLocations(){
+ const s=getSession();if(!s)return;
+ try{
+  const cutoff=encodeURIComponent(new Date(Date.now()-5*60*1000).toISOString());
+  const r=await fetch(SUPABASE_URL+`/rest/v1/driver_locations?select=user_id,driver_name,latitude,longitude,accuracy,updated_at&updated_at=gte.${cutoff}&order=updated_at.desc`,{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+s.access_token}});
+  if(!r.ok)return;liveDriverLocations=await r.json();renderRoute();
+ }catch(e){console.warn('Ubicaciones no disponibles',e)}
+}
+async function removeSharedLocation(){
+ const s=getSession();if(!s)return;
+ try{await fetch(SUPABASE_URL+'/rest/v1/driver_locations?user_id=eq.'+encodeURIComponent(s.user_id),{method:'DELETE',headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+s.access_token,Prefer:'return=minimal'}})}catch(e){console.warn('No se pudo retirar la ubicación',e)}
+}
+function startLocationPolling(){stopLocationPolling();loadDriverLocations();locationPollTimer=setInterval(loadDriverLocations,10000)}
+function stopLocationPolling(){if(locationPollTimer)clearInterval(locationPollTimer);locationPollTimer=null}
+function orderStops(o){try{return Array.isArray(o.stops)?o.stops:JSON.parse(o.stops||'[]')}catch{return []}}
+async function loadCloudDrivers(){
+ const s=getSession();if(!s||s.role!=='admin')return;
+ try{
+  const r=await fetch(SUPABASE_URL+'/rest/v1/profiles?select=id,full_name,role,active&role=eq.driver&active=eq.true&order=full_name.asc',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+s.access_token}});
+  if(r.ok)cloudDrivers=await r.json();
+ }catch(e){console.warn('Drivers no disponibles',e)}
+}
+async function loadCloudOrders(){
+ const s=getSession();if(!s)return;
+ try{
+  if(s.role==='admin')await loadCloudDrivers();
+  const r=await fetch(SUPABASE_URL+'/rest/v1/mercadito_orders?select=*&order=created_at.desc&limit=30',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+s.access_token}});
+  if(!r.ok)throw new Error(await r.text());cloudOrders=await r.json();renderCloudOrders();
+ }catch(e){console.error('Pedidos:',e);let box=s.role==='admin'?adminCloudOrders:driverCloudOrders;if(box){box.className='status bad';box.textContent='No se pudieron consultar los pedidos. Revisa la conexión con Supabase.'}}
+}
+function renderCloudOrders(){
+ const s=getSession();if(!s)return;
+ if(s.role==='admin'){
+  adminCloudOrders.className='';
+  if(!cloudOrders.length){adminCloudOrders.innerHTML='<div class="status">Todavía no hay pedidos nuevos.</div>';return}
+  adminCloudOrders.innerHTML=cloudOrders.map(o=>{let stops=orderStops(o),opts=cloudDrivers.map(d=>`<option value="${d.id}" ${o.assigned_driver_id===d.id?'selected':''}>${esc(d.full_name||'Driver')}</option>`).join('');return `<div class="driver"><div><b>Pedido ${esc(String(o.id).slice(0,8))}</b> <span class="pill">${esc(o.status)}</span></div><div>👤 <b>${esc(o.customer_name)}</b> • <a href="tel:${esc(o.customer_phone)}">${esc(o.customer_phone)}</a></div><div>🏠 ${esc(o.delivery_address)}</div><div class="muted">${new Date(o.created_at).toLocaleString()} • Servicio $${Number(o.service_fee||0).toFixed(2)}</div>${stops.map((x,i)=>`<div class="stop"><b>${i+1}. ${esc(x.store)}</b><br>📍 ${esc(x.address)}<br>${esc(x.items)}</div>`).join('')}<label>Asignar a una cuenta de driver</label><select id="cloud-driver-${o.id}"><option value="">Seleccionar driver</option>${opts}</select><button class="primary" style="margin-top:8px" onclick="assignCloudOrder('${o.id}')" ${cloudDrivers.length?'':'disabled'}>Asignar pedido</button>${cloudDrivers.length?'':'<div class="status warn">Falta permitir que el administrador consulte las cuentas de drivers.</div>'}</div>`}).join('');
+ }else{
+  driverCloudOrders.className='';
+  if(!cloudOrders.length){driverCloudOrders.innerHTML='<div class="status">No tienes pedidos asignados.</div>';return}
+  driverCloudOrders.innerHTML=cloudOrders.map(o=>{let stops=orderStops(o);return `<div class="driver"><div><b>${esc(o.customer_name)}</b> <span class="pill">${esc(o.status)}</span></div><div>📞 <a href="tel:${esc(o.customer_phone)}">${esc(o.customer_phone)}</a></div><div>🏠 ${esc(o.delivery_address)}</div>${stops.map((x,i)=>`<div class="stop"><b>${i+1}. ${esc(x.store)}</b><br>📍 ${esc(x.address)}<br>${esc(x.items)}</div>`).join('')}<div class="row" style="margin-top:8px"><button class="primary" onclick="setCloudOrderStatus('${o.id}','Aceptado por driver')">Aceptar</button><button onclick="setCloudOrderStatus('${o.id}','Rechazado por driver')">Rechazar</button><button onclick="setCloudOrderStatus('${o.id}','En compras')">En compras</button><button onclick="setCloudOrderStatus('${o.id}','En camino a entregar')">En camino</button></div><button class="primary" style="margin-top:8px" onclick="setCloudOrderStatus('${o.id}','Entregado ✅')">Confirmar entrega</button></div>`}).join('');
+ }
+}
+async function patchCloudOrder(id,changes){
+ const s=getSession();if(!s)return false;
+ const r=await fetch(SUPABASE_URL+'/rest/v1/mercadito_orders?id=eq.'+encodeURIComponent(id),{method:'PATCH',headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+s.access_token,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify(changes)});
+ if(!r.ok){alert('No se pudo actualizar el pedido.');console.error(await r.text());return false}await loadCloudOrders();return true;
+}
+async function assignCloudOrder(id){
+ const select=document.getElementById('cloud-driver-'+id),driver=cloudDrivers.find(d=>d.id===select.value);if(!driver)return alert('Selecciona primero un driver.');
+ await patchCloudOrder(id,{assigned_driver_id:driver.id,assigned_driver_name:driver.full_name||'Driver',status:'Ofrecido a '+(driver.full_name||'Driver')});
+}
+async function setCloudOrderStatus(id,newStatus){await patchCloudOrder(id,{status:newStatus})}
+function startOrderPolling(){stopOrderPolling();loadCloudOrders();orderPollTimer=setInterval(loadCloudOrders,8000)}
+function stopOrderPolling(){if(orderPollTimer)clearInterval(orderPollTimer);orderPollTimer=null}
+refreshCloudOrders.onclick=loadCloudOrders;
+startDriverGps.onclick=()=>{
+ if(!navigator.geolocation)return alert('Este teléfono no permite usar GPS desde el navegador.');
+ if(driverWatchId!==null)return;
+ driverGpsState.className='status warn';driverGpsState.textContent='Buscando GPS…';
+ driverWatchId=navigator.geolocation.watchPosition(p=>{driverCoords={lat:p.coords.latitude,lon:p.coords.longitude,accuracy:p.coords.accuracy,updatedAt:new Date().toISOString()};localStorage.setItem('mercaditoDriverGps',JSON.stringify(driverCoords));driverGpsState.className='status ok';driverGpsState.textContent=`📍 GPS activo y compartido • precisión ${Math.round(p.coords.accuracy)} m • ${new Date().toLocaleTimeString()}`;startDriverGps.disabled=true;stopDriverGps.disabled=false;publishDriverLocation();renderRoute()},e=>{driverGpsState.className='status bad';driverGpsState.textContent=e.code===1?'Permiso de ubicación rechazado.':'No se pudo actualizar el GPS.';stopDriverTracking()},{enableHighAccuracy:true,maximumAge:10000,timeout:20000});
+};
+function stopDriverTracking(){if(driverWatchId!==null)navigator.geolocation.clearWatch(driverWatchId);driverWatchId=null;startDriverGps.disabled=false;stopDriverGps.disabled=true}
+stopDriverGps.onclick=()=>{removeSharedLocation();stopDriverTracking();driverCoords=null;liveDriverLocations=liveDriverLocations.filter(x=>x.user_id!==getSession()?.user_id);localStorage.removeItem('mercaditoDriverGps');driverGpsState.className='status';driverGpsState.textContent='Ubicación sin compartir.';renderRoute()};
+openGoogleRoute.onclick=()=>{
+ if(!placed)return alert('Primero crea el pedido.');
+ let way=routeOrder().map(s=>s.address).filter(Boolean);
+ let destination=addr();
+ let url='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(destination)+'&travelmode=driving';
+ if(way.length)url+='&waypoints='+encodeURIComponent(way.join('|'));
+ window.open(url,'_blank','noopener');
+}
+
+
+drawStops();render();
+updateSessionBar();
+if(getSession()){startLocationPolling();startOrderPolling()}
+
+async function guardarPedidoSupabase(){
+ try{
+   sync();
+   const datos={
+     customer_name:customerName.value.trim(),
+     customer_phone:customerPhone.value.trim(),
+     delivery_address:addr(),
+     city:city.value.trim(),
+     state:state.value.trim().toUpperCase(),
+     zip:zipCode.value.trim(),
+     stops:stopData.map(s=>({store:s.store,address:s.address,items:s.items,lat:s.lat||null,lon:s.lon||null})),
+     service_fee:fee,
+     status:'Nuevo — esperando asignación',
+     delivery_pin:pin
+   };
+   const r=await fetch(SUPABASE_URL+'/rest/v1/mercadito_orders',{
+     method:'POST',
+     headers:{
+       'apikey':SUPABASE_KEY,
+       'Authorization':'Bearer '+SUPABASE_KEY,
+       'Content-Type':'application/json',
+       'Prefer':'return=representation'
+     },
+     body:JSON.stringify(datos)
+   });
+   if(!r.ok){
+     const error=await r.text();
+     console.error('Supabase:',error);
+     alert('No se pudo guardar el pedido en Mercadito. Error de servidor: '+r.status+'.');
+     return false;
+   }
+   const created=await r.json();
+   if(created && created[0] && created[0].id) currentOrderId=created[0].id;
+   return true;
+ }catch(error){
+   console.error(error);
+   alert('No se pudo conectar para guardar el pedido. Revisa tu conexión e inténtalo otra vez.');
+   return false;
+ }
+}
+</script>
+<div class="card" id="pilotOperations">
+<h2>🚚 Operación del piloto</h2>
+<p><b>Flujo recomendado para pedidos reales:</b></p>
+<div class="status ok">
+1. Cliente envía el pedido.<br>
+2. Admin revisa dirección, tiendas y artículos.<br>
+3. Admin asigna un driver disponible.<br>
+4. Driver acepta y va a la tienda.<br>
+5. En caja, driver registra el total exacto.<br>
+6. Cliente confirma el importe.<br>
+7. El pago se realiza por el método externo acordado durante el piloto.<br>
+8. Driver registra el pago y adjunta el recibo.<br>
+9. Driver continúa a la siguiente tienda o al domicilio.<br>
+10. Entrega se confirma con PIN.
+</div>
+<p class="muted">Durante el piloto, Mercadito registra y coordina la operación. No procesa ni custodia dinero dentro de esta página. La Wallet visual no representa fondos reales.</p>
+<h3>📋 Checklist antes de asignar</h3>
+<label><input type="checkbox"> Dirección de entrega confirmada</label><br>
+<label><input type="checkbox"> Tienda/sucursal confirmada</label><br>
+<label><input type="checkbox"> Lista de artículos revisada</label><br>
+<label><input type="checkbox"> Cliente entiende que debe aprobar el total de caja</label><br>
+<label><input type="checkbox"> Driver disponible</label>
+</div>
+<script>
+const SQUARE_APP_ID = 'sq0idp-B2dvWP-EGjgS-GiioheRmg';
+const SQUARE_LOCATION_ID = 'LVJ3K5N4J';
+const SQUARE_PAYMENT_FUNCTION = SUPABASE_URL + '/functions/v1/square-pay';
+let squareCard;
+
+async function iniciarSquare() {
+  if(!window.Square) throw new Error('Square SDK no disponible');
+  const payments = Square.payments(SQUARE_APP_ID, SQUARE_LOCATION_ID);
+  squareCard = await payments.card();
+  await squareCard.attach('#card-container');
+}
+
+document.getElementById('square-pay-button').onclick=async()=>{
+  const btn=document.getElementById('square-pay-button');
+  const out=document.getElementById('square-payment-status');
+  if(!approved || !pending) return alert('Primero revisa y autoriza el total.');
+  if(!currentOrderId) return alert('Este pedido todavía no tiene ID en Supabase. Vuelve a crear el pedido para poder cobrarlo de forma segura.');
+  try{
+    btn.disabled=true;out.className='status warn';out.textContent='Procesando pago seguro…';
+    const tokenResult=await squareCard.tokenize();
+    if(tokenResult.status!=='OK') throw new Error('No se pudo validar la tarjeta.');
+    const b=checkoutBreakdown(pending);
+    const resp=await fetch(SQUARE_PAYMENT_FUNCTION,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY},body:JSON.stringify({sourceId:tokenResult.token,orderId:currentOrderId,storeIndex:idx,storeTotalCents:Math.round(b.products*100),expectedTotalCents:Math.round(b.total*100)})});
+    const data=await resp.json();
+    if(!resp.ok || !data.ok) throw new Error(data.error||'Square rechazó el pago.');
+    paymentDone=true;paid[idx]=pending;status=`Pago confirmado — ${stopData[idx].store}`;
+    out.className='status ok';out.innerHTML=`✅ Pago confirmado por Square.<br><b>Total: ${money(b.total)}</b>`;
+    clientState.className='status ok';clientState.innerHTML=`✅ Pago confirmado: <b>${money(b.total)}</b>.`;
+    driverMsg.className='status ok';driverMsg.innerHTML='✅ Cliente pagó. Sube el recibo de la tienda y continúa.';
+    nextStop.disabled=false;document.getElementById('square-payment-box').classList.add('hidden');render();
+  }catch(e){out.className='status bad';out.textContent='❌ '+(e.message||'No se pudo completar el pago.');}
+  finally{btn.disabled=false;}
+};
+
+iniciarSquare().catch(error => {
+  console.error(error);
+  document.getElementById('square-payment-status').className='status bad';
+  document.getElementById('square-payment-status').textContent='No se pudo cargar el formulario de pago.';
+});
+</script>
+</body></html>
